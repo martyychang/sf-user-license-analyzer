@@ -1,11 +1,10 @@
 ## Note from the author
 
-    Please let me know if you run the scripts and produce new results, so that
-    we can confirm the validity of [what I originally published](http://carvingintheclouds.blogspot.com/2014/03/allowed-user-licenses-changes-upgrades.html).
-    It would be great if you can also share any contradictions or different
-    results that you encounter, so that the Salesforce community can always
-    have an accurate and up-to-date reference for managing user licenses.
-    -- Marty C.
+> Please let me know if you run the scripts and produce new results, so that
+> we can confirm the validity of [what I originally published](http://carvingintheclouds.blogspot.com/2014/03/allowed-user-licenses-changes-upgrades.html).
+> It would be great if you can also share any contradictions or different
+> results that you encounter, so that the Salesforce community can always
+> have an accurate and up-to-date reference for managing user licenses.
 
 ## How do I use the scripts?
 
