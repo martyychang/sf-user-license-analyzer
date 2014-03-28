@@ -23,9 +23,12 @@ class ProfilePackageFactory
         @profile_names  # returned
     end
 
-    # Constructor that remembers a list of known user license names
-    def initialize user_license_names
+    # Constructor that remembers a list of known user license names.
+    # It also remembers to use a different API version if one is specified,
+    # otherwise defaulting to 29.0
+    def initialize user_license_names, api_version = 29.0
         @user_license_names = user_license_names
+        @api_version = api_version
     end
 
     # Create a package that can be used to create one new profile for
@@ -92,7 +95,7 @@ class ProfilePackageFactory
         # Specify the API version
 
         version = package_xml.create_element "version"
-        version.content = API_VERSION
+        version.content = @api_version
         root.add_child version
 
         package_xml.to_s  # returned

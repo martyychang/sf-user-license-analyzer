@@ -1,35 +1,28 @@
 require "./profile_package_factory.rb"
+require "csv"
 
 # Define constants
 
-API_VERSION = 29.0
+DEFAULT_API_VERSION = 29.0  # Assumed if none is given
 
-# List all of the available user license names
+# Look for a different API version to use when passed as a parameter
 
-user_license_names = [
-    'Chatter External',
-    'Chatter Only',
-    'Knowledge Only',
-    'Siteforce Only',
-    'Salesforce',
-    'Salesforce Platform',
-    'Content Only',
-    'Gold Partner',
-    'Force.com - One App',
-    'Customer Portal Manager Custom',
-    'Customer Portal Manager Standard',
-    'Chatter Free',
-    'High Volume Customer Portal',
-    'Partner Community',
-    'Customer Community Login',
-    'Partner Community Login',
-    'Customer Community',
-    'Work.com Only'
-]
+api_version = DEFAULT_API_VERSION
+api_version = ARGV[0].to_f if ARGV.size > 0
+
+# List all of the available user license names, 
+# reading them from UserLicense.csv
+
+user_license_names = []
+
+CSV.read("./UserLicense.csv").each do |row|
+    value = row[0]
+    user_license_names.push value unless value == "Name"
+end
 
 # Instantiate a new profile package factory, primed with the available licenses
 
-factory = ProfilePackageFactory.new user_license_names
+factory = ProfilePackageFactory.new user_license_names, api_version
 
 # Create a new package
 
