@@ -1,0 +1,247 @@
+@isTest
+private class UserLicenseTest {
+
+    /*
+     * @return The expected profile name, given the user license name
+     *         and the profile prefix
+     */
+    private static String getProfileName(String userLicenseName, String prefix) {
+        return prefix + ' ' + userLicenseName;
+    }
+    
+    /*
+     * Attempt to change licenses from one type to another. Compile the results
+     * into CSV format and then print those results in a DEBUG message.
+     * This CSV should tell admins whether a user can be switched from
+     * one license to another.
+     */
+    private static testMethod void testThatUserLicenseCanBeChanged() {
+
+        // Specify the profile prefix that was used to create the test profiles
+
+        String profilePrefix = 'ApexUnit';
+        System.debug(LoggingLevel.WARN, 'profilePrefix: ' + profilePrefix);
+
+        // List the user licenses that are being included in the test
+
+        List<String> licenses = new List<String> {
+            'Chatter External',
+            'Chatter Only',
+            'Knowledge Only',
+            'Siteforce Only',
+            'Salesforce',
+            'Salesforce Platform',
+            'Content Only',
+            'Gold Partner',
+            'Force.com - One App',
+            'Customer Portal Manager Custom',
+            'Customer Portal Manager Standard',
+            'Chatter Free',
+            'High Volume Customer Portal',
+            'Partner Community',
+            'Customer Community Login',
+            'Partner Community Login',
+            'Customer Community',
+            'Work.com Only'
+        };
+
+        // Create a map of test users, based on the license they are
+        // switching from and the license they are switching to
+
+        List<User> users = new List<User>();
+
+        Map<String, Map<String, User>> usersByFromLicenseAndToLicense = 
+            new Map<String, Map<String, User>>();
+
+        // Construct all of the test users
+
+        for (String fromLicense : licenses) {
+            Map<String, User> usersByToLicense = new Map<String, User>();
+            usersByFromLicenseAndToLicense.put(fromLicense, usersByToLicense);
+
+            for (String toLicense : licenses) {
+                String username = 'user-'
+                    + usersByFromLicenseAndToLicense.size() + '-'
+                    + usersByToLicense.size() + '@apexunit.test';
+
+                User testUser = new User(
+                    FirstName = toLicense,
+                    LastName = fromLicense,
+                    Email = 'user@apexunit.test',
+                    Username = username,
+                    Alias = 'tuser', 
+                    TimeZoneSidKey = 'America/New_York', 
+                    LocaleSidKey = 'en_US', 
+                    EmailEncodingKey = 'ISO-8859-1',
+                    Profile = new Profile(Name = getProfileName(fromLicense, profilePrefix)),
+                    LanguageLocaleKey = 'en_US');
+                
+                usersByToLicense.put(toLicense, testUser);
+                users.add(testUser);
+            }
+        }
+
+        // Create the test users
+
+        Database.DMLOptions options = new Database.DMLOptions();
+        options.optAllOrNone = false;
+
+        List<Database.SaveResult> insertResults =
+            Database.insert(users, options);
+
+        // Knowing that we will need to create portal users, define a user
+        // who will own the portal accounts
+
+        User portalAccountOwner = new User(
+            FirstName = 'Portal',
+            LastName = 'Administrator',
+            Email = 'user@apexunit.test',
+            Username = 'portal.administrator@apexunit.test',
+            Alias = 'padmi', 
+            TimeZoneSidKey = 'America/New_York', 
+            LocaleSidKey = 'en_US', 
+            EmailEncodingKey = 'ISO-8859-1',
+            UserRole = new UserRole(Name = 'Administrator'),
+            Profile = new Profile(Name = 'System Administrator'),
+            LanguageLocaleKey = 'en_US');
+
+        //insert portalAccountOwner;
+
+        Account portalAccount = new Account(
+            //OwnerId = portalAccountOwner.Id,
+            Name = profilePrefix + ' Corporation');
+
+        insert portalAccount;
+
+        // Examine the test users, and handle the following known errors:
+        // * Cannot create a portal user without contact
+
+        Map<Integer, Contact> portalContactsByIndex =
+            new Map<Integer, Contact>();
+
+        Map<Integer, User> portalUsersByIndex = new Map<Integer, User>();
+
+        for (Integer i = 0; i < insertResults.size(); i++) {
+            Database.SaveResult result = insertResults.get(i);
+
+            if (!result.isSuccess()) {
+                for (Database.Error eachError : result.getErrors()) {
+                    if (eachError.getMessage().contains('Cannot create a portal user without contact')) {
+                        User portalUser = users.get(i);
+
+                        Contact portalContact = new Contact(
+                            FirstName = portalUser.FirstName,
+                            LastName = portalUser.LastName,
+                            AccountId = portalAccount.Id);
+
+
+                        portalContactsByIndex.put(i, portalContact);
+                        portalUsersByIndex.put(i, portalUser);
+                    }
+                    else {
+                        System.assert(false, 'Unexpected insert error: ' + eachError.getMessage());
+                    }
+                }
+            }
+        }
+
+        if (portalUsersByIndex.size() > 0) {
+            insert portalContactsByIndex.values();
+
+            for (Integer eachIndex : portalUsersByIndex.keySet()) {
+                User portalUser = portalUsersByIndex.get(eachIndex);
+                portalUser.ContactId = portalContactsByIndex.get(eachIndex).Id;
+            }
+
+            insert portalUsersByIndex.values();
+        }
+
+        // Make sure that we have ID's for all of our test users
+
+        for (User eachUser : users) {
+            System.assert(eachUser.Id != null,
+                'Test user must have an ID: ' + eachUser);
+        }
+
+        // Update all of the user records by changing them to their new
+        // profiles, and keep track of each user updated, the "from" license,
+        // the "to" license and the SaveResult
+
+        List<User> testUsers = new List<User>();
+        List<String> fromLicenses = new List<String>();
+        List<String> toLicenses = new List<String>();
+        List<Database.SaveResult> updateResults = new List<Database.SaveResult>();
+
+        for (String fromLicense : usersByFromLicenseAndToLicense.keySet()) {
+            Map<String, User> usersByToLicense = 
+                usersByFromLicenseAndToLicense.get(fromLicense);
+
+            for (String toLicense : usersByToLicense.keySet()) {
+                User testUser = usersByToLicense.get(toLicense);
+
+                fromLicenses.add(fromLicense);
+                toLicenses.add(toLicense);
+                testUsers.add(new User(
+                    Id = testUser.Id,
+                    IsActive = false,
+                    Profile = new Profile(Name = getProfileName(toLicense, profilePrefix))));
+            }
+        }
+
+        System.runAs(new User(Id = UserInfo.getUserId())) {
+            updateResults = Database.update(testUsers, options);
+        }
+
+        // Compile the results and store them in a matrix that will be
+        // translated into a CSV string
+
+        Map<String, Map<String, Database.SaveResult>> resultsByFromLicenseAndToLicense =
+            new Map<String, Map<String, Database.SaveResult>>();
+
+        for (Integer i = 0; i < updateResults.size(); i++) {
+            String fromLicense = fromLicenses.get(i);
+
+            Map<String, Database.SaveResult> resultsByToLicense = null;
+
+            if (resultsByFromLicenseAndToLicense.containsKey(fromLicense)) {
+                resultsByToLicense = resultsByFromLicenseAndToLicense.get(fromLicense);
+            }
+            else {
+                resultsByToLicense = new Map<String, Database.SaveResult>();
+                resultsByFromLicenseAndToLicense.put(fromLicense, resultsByToLicense);
+            }
+
+            String toLicense = toLicenses.get(i);
+            resultsByToLicense.put(toLicense, updateResults.get(i));
+        }
+
+        // Translate the results matrix into a CSV string
+
+        String csvText = '\r\n';
+
+        csvText += ',' + String.join(licenses, ',') + '\r\n';
+
+        for (String fromLicense : licenses) {
+            List<String> values = new List<String> { fromLicense };
+
+            for (String toLicense : licenses) {
+                Database.SaveResult result =
+                    resultsByFromLicenseAndToLicense.get(fromLicense).get(toLicense);
+
+                if (fromLicense == toLicense)
+                    values.add('No Change');
+                else if (result.isSuccess())
+                    values.add('Yes');
+                else
+                    values.add('"' + result.getErrors().get(0).getMessage() + '"');
+            }
+
+            csvText += String.join(values, ',') + '\r\n';
+        }
+
+        // Print the text
+
+        System.debug(LoggingLevel.WARN, csvText);
+        //System.assert(false, csvText);
+    }
+}
