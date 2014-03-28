@@ -1,4 +1,4 @@
-@isTest
+@isTest(SeeAllData = true)
 private class UserLicenseTest {
 
     /*
@@ -22,28 +22,14 @@ private class UserLicenseTest {
         String profilePrefix = 'ApexUnit';
         System.debug(LoggingLevel.WARN, 'profilePrefix: ' + profilePrefix);
 
-        // List the user licenses that are being included in the test
+        // List the user licenses that are being included in the test,
+        // assuming we are testing every license available in the org
 
-        List<String> licenses = new List<String> {
-            'Chatter External',
-            'Chatter Only',
-            'Knowledge Only',
-            'Siteforce Only',
-            'Salesforce',
-            'Salesforce Platform',
-            'Content Only',
-            'Gold Partner',
-            'Force.com - One App',
-            'Customer Portal Manager Custom',
-            'Customer Portal Manager Standard',
-            'Chatter Free',
-            'High Volume Customer Portal',
-            'Partner Community',
-            'Customer Community Login',
-            'Partner Community Login',
-            'Customer Community',
-            'Work.com Only'
-        };
+        List<String> licenses = new List<String>();
+
+        for (UserLicense eachLicense : [SELECT Name FROM UserLicense]) {
+            licenses.add(eachLicense.Name);
+        }
 
         // Create a map of test users, based on the license they are
         // switching from and the license they are switching to
@@ -74,7 +60,9 @@ private class UserLicenseTest {
                     LocaleSidKey = 'en_US', 
                     EmailEncodingKey = 'ISO-8859-1',
                     Profile = new Profile(Name = getProfileName(fromLicense, profilePrefix)),
-                    LanguageLocaleKey = 'en_US');
+                    LanguageLocaleKey = 'en_US',
+                    UserPermissionsSFContentUser = false,
+                    IsActive = true);
                 
                 usersByToLicense.put(toLicense, testUser);
                 users.add(testUser);
